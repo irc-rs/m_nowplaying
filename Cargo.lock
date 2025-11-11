@@ -10,10 +10,31 @@ checksum = "8f215f9b7224f49fb73256115331f677d868b34d18b65dbe4db392e6021eea90"
 
 [[package]]
 name = "m_nowplaying"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "debug_print",
+ "mirust",
  "windows",
+]
+
+[[package]]
+name = "mirust"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ef5c2d808c868df2fcf2a779d3fba0e23b82d4b9f1bdbbd310831bb41060ab9"
+dependencies = [
+ "mirust_macros",
+ "windows",
+]
+
+[[package]]
+name = "mirust_macros"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5c7aecc382e367ab4df7df3a118a1fb9d0f7cf928b5bce8f4eb8f5870c0245d"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]

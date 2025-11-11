@@ -26,4 +26,6 @@ cargo build --target aarch64-pc-windows-msvc --release
 
 ## Usage
 
+### Requires: mIRC v6.10+ ($dllcall support)
+
 To be continued...
