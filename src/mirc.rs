@@ -68,7 +68,7 @@ pub fn UnloadDll(reason: TimeoutReason) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "stdcall" fn version(
+pub extern "system" fn version(
     _m_wnd: HWND,
     _a_wnd: HWND,
     data: PCWSTR,

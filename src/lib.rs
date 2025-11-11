@@ -5,13 +5,10 @@ use mIRC::{LOADINFO, MircReturn, TimeoutReason};
 use mirc as mIRC;
 use std::sync::atomic::{AtomicI32, Ordering};
 use windows::Foundation::TypedEventHandler;
-use windows::Media::{
-    Control::{
-        CurrentSessionChangedEventArgs, GlobalSystemMediaTransportControlsSession,
-        GlobalSystemMediaTransportControlsSessionManager,
-        GlobalSystemMediaTransportControlsSessionMediaProperties, MediaPropertiesChangedEventArgs,
-    },
-    MediaPlaybackType,
+use windows::Media::Control::{
+    CurrentSessionChangedEventArgs, GlobalSystemMediaTransportControlsSession,
+    GlobalSystemMediaTransportControlsSessionManager,
+    GlobalSystemMediaTransportControlsSessionMediaProperties, MediaPropertiesChangedEventArgs,
 };
 use windows::core::{PCWSTR, w};
 use windows::{Win32::Foundation::HWND, core::BOOL};
