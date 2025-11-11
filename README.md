@@ -1,3 +1,4 @@
+[![Build m_nowplaying DLL](https://github.com/realJoshByrnes/m_nowplaying/actions/workflows/ci.yml/badge.svg)](https://github.com/realJoshByrnes/m_nowplaying/actions/workflows/ci.yml)
 # m_nowplaying DLL for mIRC / AdiIRC
 
 ## Introduction
