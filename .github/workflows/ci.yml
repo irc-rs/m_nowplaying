@@ -1,4 +1,4 @@
-name: Build irc_nowplaying DLL
+name: Build m_nowplaying DLL
 
 on: [push, pull_request]
 
@@ -10,11 +10,11 @@ jobs:
       matrix:
         include:
           - target: x86_64-pc-windows-msvc
-            target_name: irc_nowplaying_x64.dll
+            target_name: m_nowplaying_x64.dll
           - target: i686-pc-windows-msvc
-            target_name: irc_nowplaying_x86.dll
+            target_name: m_nowplaying_x86.dll
           - target: aarch64-pc-windows-msvc
-            target_name: irc_nowplaying_arm64.dll
+            target_name: m_nowplaying_arm64.dll
 
     steps:
       - name: Checkout repository
@@ -28,12 +28,12 @@ jobs:
 
       - name: Rename DLL
         run: |
-          Rename-Item -Path target/${{ matrix.target }}/release/irc_nowplaying.dll -NewName ${{ matrix.target_name }}
+          Rename-Item -Path target/${{ matrix.target }}/release/m_nowplaying.dll -NewName ${{ matrix.target_name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: irc_nowplaying_${{ matrix.target }}
+          name: m_nowplaying_${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.target_name }}
 
   collect-artifacts:
@@ -44,19 +44,19 @@ jobs:
       - name: Download build artifacts (x64)
         uses: actions/download-artifact@v4
         with:
-          name: irc_nowplaying_x86_64-pc-windows-msvc
+          name: m_nowplaying_x86_64-pc-windows-msvc
           path: ./artifacts/x64
 
       - name: Download build artifacts (x86)
         uses: actions/download-artifact@v4
         with:
-          name: irc_nowplaying_i686-pc-windows-msvc
+          name: m_nowplaying_i686-pc-windows-msvc
           path: ./artifacts/x86
 
       - name: Download build artifacts (ARM64)
         uses: actions/download-artifact@v4
         with:
-          name: irc_nowplaying_aarch64-pc-windows-msvc
+          name: m_nowplaying_aarch64-pc-windows-msvc
           path: ./artifacts/arm64
 
       - name: Create combined artifact directory
@@ -64,12 +64,12 @@ jobs:
 
       - name: Move DLLs to combined artifact directory
         run: |
-          Move-Item -Path ./artifacts/x64/irc_nowplaying_x64.dll -Destination ./combined_artifacts/irc_nowplaying_x64.dll
-          Move-Item -Path ./artifacts/x86/irc_nowplaying_x86.dll -Destination ./combined_artifacts/irc_nowplaying_x86.dll
-          Move-Item -Path ./artifacts/arm64/irc_nowplaying_arm64.dll -Destination ./combined_artifacts/irc_nowplaying_arm64.dll
+          Move-Item -Path ./artifacts/x64/m_nowplaying_x64.dll -Destination ./combined_artifacts/m_nowplaying_x64.dll
+          Move-Item -Path ./artifacts/x86/m_nowplaying_x86.dll -Destination ./combined_artifacts/m_nowplaying_x86.dll
+          Move-Item -Path ./artifacts/arm64/m_nowplaying_arm64.dll -Destination ./combined_artifacts/m_nowplaying_arm64.dll
 
       - name: Upload combined artifact
         uses: actions/upload-artifact@v4
         with:
-          name: irc_nowplaying
+          name: m_nowplaying
           path: ./combined_artifacts

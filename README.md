@@ -1,4 +1,4 @@
-# irc_nowplaying DLL for mIRC / AdiIRC
+# m_nowplaying DLL for mIRC / AdiIRC
 
 ## Introduction
 

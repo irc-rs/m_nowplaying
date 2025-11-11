@@ -1,10 +1,10 @@
 use debug_print::debug_eprintln as deprintln;
 use std::sync::Mutex;
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::{BOOL, HWND};
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::GetClassNameW;
 use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+use windows::core::PCWSTR;
+use windows::{Win32::Foundation::HWND, core::BOOL};
 
 #[repr(C)]
 #[allow(non_snake_case)]
@@ -67,7 +67,7 @@ pub fn UnloadDll(reason: TimeoutReason) -> i32 {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "stdcall" fn version(
     _m_wnd: HWND,
     _a_wnd: HWND,

@@ -1,10 +1,9 @@
 mod mirc;
 
 use debug_print::debug_eprintln as deprintln;
-use mIRC::{MircReturn, TimeoutReason, LOADINFO};
+use mIRC::{LOADINFO, MircReturn, TimeoutReason};
 use mirc as mIRC;
 use std::sync::atomic::{AtomicI32, Ordering};
-use windows::core::{w, Result, PCWSTR};
 use windows::Foundation::TypedEventHandler;
 use windows::Media::{
     Control::{
@@ -14,13 +13,14 @@ use windows::Media::{
     },
     MediaPlaybackType,
 };
-use windows::Win32::Foundation::{BOOL, HWND};
+use windows::core::{PCWSTR, w};
+use windows::{Win32::Foundation::HWND, core::BOOL};
 
 // Global variables
 static M_WAITING_FOR_MEDIA_CHANGE: AtomicI32 = AtomicI32::new(0);
 
-#[no_mangle]
-pub extern "stdcall" fn wait_for_media(
+#[unsafe(no_mangle)]
+pub extern "system" fn wait_for_media(
     _m_wnd: HWND,
     _a_wnd: HWND,
     data: PCWSTR,
@@ -31,8 +31,9 @@ pub extern "stdcall" fn wait_for_media(
     if !mIRC::is_dllcall() {
         // Synchronous calls using $dll or /dll block the GUI thread, prevent this.
         deprintln!("Prevented attempt to block GUI thread in wait_for_media()");
-        let result =
-            w!("!echo -estgc info * The DLL routine you attempted to use is not allowed on the GUI thread, try using $ $+ dllcall() instead.");
+        let result = w!(
+            "!echo -estgc info * The DLL routine you attempted to use is not allowed on the GUI thread, try using $ $+ dllcall() instead."
+        );
         unsafe {
             std::ptr::copy_nonoverlapping(result.as_ptr(), data.0 as *mut u16, result.len() + 1);
         }
@@ -51,8 +52,8 @@ pub extern "stdcall" fn wait_for_media(
     MircReturn::Continue // Return the result to mIRC
 }
 
-#[no_mangle]
-pub extern "stdcall" fn halt(
+#[unsafe(no_mangle)]
+pub extern "system" fn halt(
     _m_wnd: HWND,
     _a_wnd: HWND,
     data: PCWSTR,
@@ -68,14 +69,14 @@ pub extern "stdcall" fn halt(
     MircReturn::Command // Return the result to mIRC
 }
 
-#[no_mangle]
-pub extern "stdcall" fn LoadDll(li: *mut LOADINFO) {
+#[unsafe(no_mangle)]
+pub extern "system" fn LoadDll(li: *mut LOADINFO) {
     mIRC::LoadDll(li);
     watch_media_session_changes();
 }
 
-#[no_mangle]
-pub extern "stdcall" fn UnloadDll(reason: TimeoutReason) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "system" fn UnloadDll(reason: TimeoutReason) -> i32 {
     mIRC::UnloadDll(reason)
 }
 
@@ -88,7 +89,7 @@ static mut CURRENT_MEDIA_PROPERTIES: Option<
 fn watch_media_session_changes() {
     let session_manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .unwrap()
-        .get()
+        .GetResults()
         .unwrap();
     let session_manager_clone = session_manager.clone();
 
@@ -110,8 +111,10 @@ fn watch_media_session_changes() {
                 >::new({
                     move |_, _| {
                         println!("Media properties changed");
-                        let media_properties =
-                            session_clone.TryGetMediaPropertiesAsync().unwrap().get();
+                        let media_properties = session_clone
+                            .TryGetMediaPropertiesAsync()
+                            .unwrap()
+                            .GetResults();
                         match media_properties {
                             Ok(media_properties) => {
                                 deprintln!("New media properties found");
@@ -142,8 +145,8 @@ fn watch_media_session_changes() {
     let _ = current_session_changed.Invoke(&session_manager, None);
 }
 
-#[no_mangle]
-pub extern "stdcall" fn title(
+#[unsafe(no_mangle)]
+pub extern "system" fn title(
     _m_wnd: HWND,
     _a_wnd: HWND,
     data: PCWSTR,
@@ -163,8 +166,8 @@ pub extern "stdcall" fn title(
     MircReturn::Result
 }
 
-#[no_mangle]
-pub extern "stdcall" fn artist(
+#[unsafe(no_mangle)]
+pub extern "system" fn artist(
     _m_wnd: HWND,
     _a_wnd: HWND,
     data: PCWSTR,
