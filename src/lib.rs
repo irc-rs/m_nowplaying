@@ -1,6 +1,8 @@
 use mirust::mirust_fn;
 use windows::{Win32::Foundation::HWND, core::BOOL};
 
+// (Thumbnail stream saving will use Streams APIs; importing selectively later when implemented)
+
 use std::sync::{
     Condvar, Mutex, OnceLock,
     atomic::{AtomicBool, Ordering},
@@ -31,7 +33,10 @@ struct MediaState {
     track_number: Option<u32>,
     album_track_count: Option<u32>,
     playback_type: Option<String>,
-    thumbnail_path: Option<String>,
+
+    // Thumbnail handling
+    thumbnail_bytes: Option<Vec<u8>>,
+    thumbnail_path: Option<String>, // cache of last written file
 
     // Control
     version: u64,
@@ -53,7 +58,7 @@ struct MediaSnapshot {
     track_number: Option<u32>,
     album_track_count: Option<u32>,
     playback_type: Option<String>,
-    thumbnail_path: Option<String>,
+    thumbnail_bytes: Option<Vec<u8>>,
 }
 
 fn any_changed<T: PartialEq>(a: &Option<T>, b: &Option<T>) -> bool {
@@ -104,8 +109,12 @@ fn update_state_with(new: Option<MediaSnapshot>) {
                 state.playback_type = newm.playback_type;
                 changed = true;
             }
-            if any_changed(&state.thumbnail_path, &newm.thumbnail_path) {
-                state.thumbnail_path = newm.thumbnail_path;
+            // Thumbnail bytes: if changed, clear old file
+            if any_changed(&state.thumbnail_bytes, &newm.thumbnail_bytes) {
+                if let Some(old_path) = state.thumbnail_path.take() {
+                    let _ = std::fs::remove_file(old_path);
+                }
+                state.thumbnail_bytes = newm.thumbnail_bytes;
                 changed = true;
             }
 
@@ -126,7 +135,7 @@ fn update_state_with(new: Option<MediaSnapshot>) {
                 || state.track_number.is_some()
                 || state.album_track_count.is_some()
                 || state.playback_type.is_some()
-                || state.thumbnail_path.is_some()
+                || state.thumbnail_bytes.is_some()
             {
                 state.title = None;
                 state.artist = None;
@@ -137,7 +146,10 @@ fn update_state_with(new: Option<MediaSnapshot>) {
                 state.track_number = None;
                 state.album_track_count = None;
                 state.playback_type = None;
-                state.thumbnail_path = None;
+                state.thumbnail_bytes = None;
+                if let Some(old_path) = state.thumbnail_path.take() {
+                    let _ = std::fs::remove_file(old_path);
+                }
                 state.version = state.version.wrapping_add(1);
                 state.cancelled = false;
                 cvar.notify_all();
@@ -187,12 +199,20 @@ fn fetch_current(
                 let album_artist = props.AlbumArtist().ok().map(|s| s.to_string());
                 let subtitle = props.Subtitle().ok().map(|s| s.to_string());
                 let track_number = props.TrackNumber().ok().map(|v| v as u32); // API returns i32
+                let album_track_count = props.AlbumTrackCount().ok().map(|v| v as u32);
+
                 // PlaybackType is an IReference<MediaPlaybackType>; use Value() accessor
                 let playback_type = props
                     .PlaybackType()
                     .ok()
                     .and_then(|iref| iref.Value().ok())
                     .map(|p| playback_type_to_string(p).to_string());
+
+                // Thumbnail: read bytes into memory (best-effort)
+                let thumbnail_bytes = props
+                    .Thumbnail()
+                    .ok()
+                    .and_then(|thr| read_thumbnail_bytes(&thr));
 
                 // Genres
                 let genres = match props.Genres() {
@@ -225,10 +245,59 @@ fn fetch_current(
                     genres,
                     subtitle,
                     track_number,
-                    album_track_count: None, // Not provided by API
+                    album_track_count,
                     playback_type,
-                    thumbnail_path: None, // Not implemented yet
+                    thumbnail_bytes,
                 });
+            }
+        }
+    }
+    None
+}
+
+// Read the thumbnail RandomAccessStream into a Vec<u8>
+fn read_thumbnail_bytes(
+    thr: &windows::Storage::Streams::IRandomAccessStreamReference,
+) -> Option<Vec<u8>> {
+    use windows::Storage::Streams::{Buffer, DataReader, InputStreamOptions};
+
+    if let Ok(op) = thr.OpenReadAsync() {
+        // Wait for stream
+        loop {
+            match op.Status() {
+                Ok(s) if s.0 == 1 => break,
+                Ok(_) => std::thread::sleep(Duration::from_millis(10)),
+                _ => return None,
+            }
+        }
+        if let Ok(stream) = op.GetResults() {
+            // Determine size (cap to a reasonable limit, e.g., 10MB)
+            let size = stream.Size().ok().unwrap_or(0);
+            let cap = std::cmp::min(size as u32, 10_000_000);
+            if cap == 0 {
+                return None;
+            }
+            if let Ok(buf) = Buffer::Create(cap) {
+                if let Ok(read_op) = stream.ReadAsync(&buf, cap, InputStreamOptions::None) {
+                    // Wait for read
+                    loop {
+                        match read_op.Status() {
+                            Ok(s) if s.0 == 1 => break,
+                            Ok(_) => std::thread::sleep(Duration::from_millis(10)),
+                            _ => return None,
+                        }
+                    }
+                    if let Ok(buf_filled) = read_op.GetResults() {
+                        if let Ok(len) = buf_filled.Length() {
+                            if let Ok(reader) = DataReader::FromBuffer(&buf_filled) {
+                                let mut data = vec![0u8; len as usize];
+                                if reader.ReadBytes(&mut data).is_ok() {
+                                    return Some(data);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -628,7 +697,6 @@ pub extern "system" fn thumbnail(
     _show: BOOL,
     _nopause: BOOL,
 ) -> mirust::MircResult {
-    // Not implemented: return empty string or a path if we add extraction later
     if !is_listening() {
         return mirust::MircResult {
             code: 3,
@@ -637,11 +705,42 @@ pub extern "system" fn thumbnail(
         };
     }
     let (lock, _cvar) = ensure_state();
-    let state = lock.lock().unwrap();
-    let value = state.thumbnail_path.clone().unwrap_or_default();
+    let mut state = lock.lock().unwrap();
+    // If we have a cached file and it exists, return it
+    if let Some(ref path) = state.thumbnail_path {
+        if std::path::Path::new(path).exists() {
+            return mirust::MircResult {
+                code: 3,
+                data: Some(path.clone()),
+                parms: None,
+            };
+        } else {
+            // Remove stale path
+            state.thumbnail_path = None;
+        }
+    }
+    // If we have thumbnail bytes, write to a temp file and cache the path
+    if let Some(ref bytes) = state.thumbnail_bytes {
+        let mut path = std::env::temp_dir();
+        if let Ok(now) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            path.push(format!("m_nowplaying_thumb_{}.png", now.as_millis()));
+        } else {
+            path.push("m_nowplaying_thumb.png");
+        }
+        if std::fs::write(&path, bytes).is_ok() {
+            let path_str = path.to_string_lossy().to_string();
+            state.thumbnail_path = Some(path_str.clone());
+            return mirust::MircResult {
+                code: 3,
+                data: Some(path_str),
+                parms: None,
+            };
+        }
+    }
+    // No thumbnail available
     mirust::MircResult {
         code: 3,
-        data: Some(value),
+        data: Some(String::new()),
         parms: None,
     }
 }

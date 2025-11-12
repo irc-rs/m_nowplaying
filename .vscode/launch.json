@@ -5,7 +5,7 @@
       "type": "cppvsdbg",
       "request": "launch",
       "name": "Launch mIRC (Debug)",
-      "program": "C:\\Program Files (x86)\\mIRC\\mirc.exe",
+      "program": "C:\\Program Files\\mIRC\\mirc.exe",
       "args": [
         "${workspaceFolder}\\target\\i686-pc-windows-msvc\\debug\\m_nowplaying.dll"
       ],

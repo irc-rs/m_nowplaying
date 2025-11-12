@@ -1,9 +1,14 @@
-[![Build m_nowplaying DLL](https://github.com/realJoshByrnes/m_nowplaying/actions/workflows/ci.yml/badge.svg)](https://github.com/realJoshByrnes/m_nowplaying/actions/workflows/ci.yml)
+[![Build m_nowplaying DLL](https://github.com/irc-js/m_nowplaying/actions/workflows/ci.yml/badge.svg)](https://github.com/irc-js/m_nowplaying/actions/workflows/ci.yml)
 # m_nowplaying DLL for mIRC / AdiIRC
+
+## Requirements
+
+- mIRC v6.10 or later (or AdiIRC)
+- Windows 10 or later
 
 ## Introduction
 
-This repository contains a DLL for mIRC and AdiIRC, providing access to the Windows Media API.
+This DLL provides access to the Windows Media API for mIRC and AdiIRC scripts, allowing you to retrieve information about the currently playing media track.
 
 ## Building
 
@@ -27,6 +32,46 @@ cargo build --target aarch64-pc-windows-msvc --release
 
 ## Usage
 
-### Requires: mIRC v6.10+ ($dllcall support)
+### Core Functions
 
-To be continued...
+- `wait_for_media`: Starts listening for media events. Must be called with `$dllcall`. It does not block; instead, it will callback once a media change has been detected. 
+- `halt`: Stops listening for media events and unblocks any waiting calls.
+
+### Track Information Functions
+
+These functions return information about the currently playing track (or an empty string if not available):
+
+- `title`: Track title
+- `artist`: Track artist
+- `albumartist`: Album artist
+- `albumtitle`: Album title
+- `genres`: Track genres (comma-separated)
+- `playbacktype`: Playback type (Music, Video, Image, Unknown)
+- `subtitle`: Track subtitle
+- `tracknumber`: Track number
+- `albumtrackcount`: Total number of tracks in the album
+- `thumbnail`: Path to a temporary file containing the track's thumbnail image (if available)
+
+### Version
+
+- `version`: Returns the DLL version and build information.
+
+## Example (mIRC)
+
+```msl
+//noop $dllcall(m_nowplaying.dll, callback_alias, wait_for_media, $null)
+```
+
+mIRC will call the specified alias (`callback_alias`) in your remotes once media has been detected.
+
+```msl
+alias callback_alias {
+    echo -a Now playing: $dll(m_nowplaying.dll, title, $null)
+}
+```
+
+## Notes
+
+- This DLL requires mIRC v6.10 or later due to requiring $dllcall support.
+- Only one listener is supported at a time.
+- The thumbnail is written to a temporary file on demand.
